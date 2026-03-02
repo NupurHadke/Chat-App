@@ -1,106 +1,17 @@
 import React, { useEffect, useState, useRef } from "react";
-import styled from "styled-components";
 import { supabase } from "../supabaseClient";
+import "../App.css";
 
-const Container = styled.div`
-  max-width: 900px;
-  margin: 20px auto;
-  display: flex;
-  flex-direction: column;
-  font-family: Arial, sans-serif;
-`;
-
-const Header = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-`;
-
-const MessagesBox = styled.div`
-  height: 400px;
-  overflow-y: auto;
-  border: 1px solid #ddd;
-  padding: 15px;
-  margin: 15px 0;
-  background: #f9f9f9;
-`;
-
-const MessageRow = styled.div`
-  display: flex;
-  justify-content: ${(props) =>
-    props.system
-      ? "center"
-      : props.own
-      ? "flex-end"
-      : "flex-start"};
-  margin-bottom: 10px;
-`;
-
-const MessageBubble = styled.div`
-  background: ${(props) =>
-    props.system
-      ? "#e0e0e0"
-      : props.own
-      ? "#4e73df"
-      : "#e5e5ea"};
-  color: ${(props) =>
-    props.system
-      ? "#555"
-      : props.own
-      ? "white"
-      : "black"};
-  padding: 10px 15px;
-  border-radius: 20px;
-  max-width: 60%;
-  font-size: 14px;
-  font-style: ${(props) => (props.system ? "italic" : "normal")};
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-`;
-
-const TimeText = styled.div`
-  font-size: 10px;
-  margin-top: 5px;
-  opacity: 0.7;
-  text-align: right;
-`;
-
-const InputContainer = styled.div`
-  display: flex;
-  gap: 10px;
-`;
-
-const Button = styled.button`
-  padding: 8px 14px;
-  background: #4e73df;
-  color: white;
-  border: none;
-  cursor: pointer;
-`;
-
-const OnlineUser = styled.div`
-  display: flex;
-  align-items: center;
-  margin-bottom: 5px;
-`;
-
-const GreenDot = styled.span`
-  height: 10px;
-  width: 10px;
-  background-color: green;
-  border-radius: 50%;
-  display: inline-block;
-  margin-right: 8px;
-`;
-
-export default function ChatRoom({ session }) {
+export default function Chat({ session }) {
   const [messages, setMessages] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const bottomRef = useRef(null);
-
   const user = session.user;
 
+  // FORMAT TIME (12:11 PM)
   const formatTime = (time) => {
+    if (!time) return "";
     const date = new Date(time);
     return date.toLocaleTimeString([], {
       hour: "2-digit",
@@ -108,12 +19,7 @@ export default function ChatRoom({ session }) {
     });
   };
 
-  // AUTO SCROLL
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  // FETCH MESSAGES + REALTIME
+  // FETCH MESSAGES
   useEffect(() => {
     fetchMessages();
 
@@ -142,27 +48,6 @@ export default function ChatRoom({ session }) {
     setMessages(data || []);
   };
 
-  // ✅ STEP 2: Insert "User Joined" Message
-  useEffect(() => {
-  const insertJoinMessage = async () => {
-    const { error } = await supabase
-      .from("messages")
-      .insert([
-        {
-          content: `${user.email.split("@")[0]} joined the chat`,
-          user_id: user.id,  
-          type: "system",
-        },
-      ]);
-
-    if (error) {
-      console.log("Join message error:", error.message);
-    }
-  };
-
-  insertJoinMessage();
-}, [user]);
-
   // SEND MESSAGE
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
@@ -178,7 +63,12 @@ export default function ChatRoom({ session }) {
     setNewMessage("");
   };
 
-  // ONLINE STATUS UPDATE
+  // AUTO SCROLL
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // ONLINE STATUS
   useEffect(() => {
     const setOnline = async () => {
       await supabase.from("online_users").upsert({
@@ -232,63 +122,71 @@ export default function ChatRoom({ session }) {
   }, []);
 
   return (
-    <Container>
-      <Header>
+    <div className="chat-container">
+      {/* SIDEBAR */}
+      <div className="sidebar">
         <h2>Realtime Chat</h2>
-        <Button onClick={() => supabase.auth.signOut()}>
-          Logout
-        </Button>
-      </Header>
 
-      <div>
-        <h4>Online Users</h4>
+        <div className="user-info">
+          <p>{user.email}</p>
+          <button onClick={() => supabase.auth.signOut()}>
+            Logout
+          </button>
+        </div>
+
+        <h4 style={{ marginTop: "30px" }}>Online Users</h4>
+
         {onlineUsers.map((u) => (
-          <OnlineUser key={u.user_id}>
-            <GreenDot />
-            {u.email} (Online)
-          </OnlineUser>
+          <div key={u.user_id} className="online-user">
+            <span className="green-dot"></span>
+            {u.email}
+          </div>
         ))}
       </div>
 
-      <MessagesBox>
-        {messages.map((msg) => {
-          const isSystem = msg.type === "system";
+      {/* CHAT AREA */}
+      <div className="chat-area">
+        <div className="chat-header">
+          <h3>Chat Room</h3>
+        </div>
 
-          return (
-            <MessageRow
-              key={msg.id}
-              own={msg.user_id === user.id}
-              system={isSystem}
-            >
-              <MessageBubble
-                own={msg.user_id === user.id}
-                system={isSystem}
+        <div className="chat-messages">
+          {messages.map((msg) => {
+            const isOwn = msg.user_id === user.id;
+            const isSystem = msg.type === "system";
+
+            if (isSystem) {
+              return (
+                <div key={msg.id} className="system-message">
+                  System: {msg.content}
+                </div>
+              );
+            }
+
+            return (
+              <div
+                key={msg.id}
+                className={`message ${isOwn ? "own" : "other"}`}
               >
-                {isSystem
-                  ? `System: ${msg.content}`
-                  : msg.content}
+                <div>{msg.content}</div>
+                <div className="time">
+                  {formatTime(msg.created_at)}
+                </div>
+              </div>
+            );
+          })}
+          <div ref={bottomRef}></div>
+        </div>
 
-                {!isSystem && (
-                  <TimeText>
-                    {formatTime(msg.created_at)}
-                  </TimeText>
-                )}
-              </MessageBubble>
-            </MessageRow>
-          );
-        })}
-        <div ref={bottomRef} />
-      </MessagesBox>
-
-      <InputContainer>
-        <input
-          style={{ flex: 1, padding: "8px" }}
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Type message..."
-        />
-        <Button onClick={sendMessage}>Send</Button>
-      </InputContainer>
-    </Container>
+        <div className="chat-input">
+          <input
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Type message..."
+          />
+          <button onClick={sendMessage}>Send</button>
+        </div>
+      </div>
+    </div>
   );
 }

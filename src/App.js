@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
-import Login from "./components/Login";
 import Chat from "./components/Chat";
 import Auth from "./components/Auth";
 
